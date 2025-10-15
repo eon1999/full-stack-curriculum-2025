@@ -1,0 +1,43 @@
+* {
+  font-family: Verdana, Geneva, Tahoma, sans-serif
+  margin 0%;
+}
+
+h1 {
+    color: darkblue;
+    font-size: 90px;
+    text-align: center;
+}
+
+input {
+    /* margin-left: 5px; */
+    border-radius: 5px;
+}
+
+#basic-inputs {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px; 
+}
+
+.gender-option {
+    margin-left: 10%;
+}
+
+button {
+    margin-top: 0%;
+    border-radius: 2px;
+    padding: 2% 1%;
+
+    text-transform: uppercase;
+
+    box-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+    
+    cursor: pointer;
+    transition: background-color 0.5 ease;
+}
+
+button:hover {
+    background-color: blue;
+}
