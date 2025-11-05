@@ -23,7 +23,7 @@
 
 <script>
 		// USE YOUR OWN API KEY
-		const apiKey = "";
+		const apiKey = "0385b0a9ca61a96beb740c700743f786";
 
         // variable that stores the city that is chosen
 		let city;
@@ -103,6 +103,127 @@
 			//printing the city object to the console
 			console.log(city);
             // BEGIN CODING HERE
+
+			fetchWeatherAndAQI(city.lat, city.lon)
+				.then(() => {
+					renderWeather();
+					renderAQI();
+				})
+				.catch(err => {
+					// print error to log
+					console.error('Error loading weather and AQI')
+					// show user that that there was an error
+					document.querySelector('#weather-container').innerHTML = '<p>Error loading data</p>'
+				})
+			
+		}
+
+		async function fetchWeatherAndAQI(lat, lon) {
+			// ONe Call for current and daily
+			const currentUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=imperial&appid=${apiKey}`;
+    		const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+
+			// batch request using promise.all
+			const [curResp, aqiResp] = await Promise.all([
+				fetch(currentUrl),
+				fetch(aqiUrl)
+			]);
+
+			// if either fetch failed, throw an error
+			console.log('cur weather status', curResp.status, curResp.statusText);
+			console.log('aqi status', aqiResp.status, aqiResp.statusText);
+
+			if (!curResp.ok) {
+				const body = await curResp.text().catch(() => '<no body>');
+				throw new Error(`Weather fetch failed: ${curResp.status} ${curResp.statusText} - ${body}`);
+			}
+			if (!aqiResp.ok) {
+				const body = await aqiResp.text().catch(() => '<no body>');
+				throw new Error(`AQI fetch failed: ${aqiResp.status} ${aqiResp.statusText} - ${body}`);
+			}
+
+			// assign response json data to variables
+			const currJson = await curResp.json();
+			aqi = await aqiResp.json();
+
+			// normalize cuz currResp contains raw weather response
+			weather = {
+				current: {
+					temp: currJson.main?.temp,
+					feels_like: currJson.main?.feels_like,
+					humidity: currJson.main?.humidity,
+					wind_speed: currJson.wind?.speed ?? 0,
+					weather: currJson.weather // array with description & icon
+				},
+				daily: [] // placeholder if needed
+			};
+
+			console.log('normalized weather:', weather);
+		}
+
+		// time to render weather container
+		function renderWeather() {
+			// get our weather container data
+			const container = document.querySelector('#weather-container')
+
+			// if we don't have either data, then don't show anything
+			if (!weather || !city) {
+				container.innerHTML = '<p>No weather data.</p>';
+				return;
+			}
+
+			// grab current data
+			const curr = weather.current;
+			// ternaries!! make sure the data's actually there before accessing
+			const currIcon = curr.weather && curr.weather[0] ? curr.weather[0].icon : '';
+			const currDesc = curr.weather && curr.weather[0] ? curr.weather[0].description : '';
+
+			// build HTML
+			let html = '';
+			html += `<div class = "city-header"><h2>${city.fullName}</h2><p>${formatDate(0)}</p></div>`;
+			html += `<div class="current-weather">
+						<img src = "https://openweathermap.org/img/wn/${currIcon}@2x.png" alt = "${currDesc}">
+						<div class ="current-readings">
+							<p><strong>${Math.round(curr.temp)}°F</strong> - ${currDesc}</p>
+							<p>Feels like: ${Math.round(curr.feels_like)}°F</p>
+                            <p>Humidity: ${curr.humidity}%</p>
+                            <p>Wind: ${curr.wind_speed} mph</p>
+						</div>
+					</div>`;
+
+			container.innerHTML = html;
+		}
+
+		// render dat AQI doe
+		function renderAQI() {
+			// grab html element to append to 
+			const container = document.querySelector('#weather-container');
+
+			// make sure we have our data
+			if (!aqi || !aqi.list || !aqi.list.length) {
+				return;
+			}
+
+			const aqiValue = aqi.list[0].main.aqi;
+
+			const labels = {
+				1: 'Good',
+				2: 'Fair',
+				3: 'Moderate',
+				4: 'Poor',
+				5: 'Very Poor'
+
+			};
+
+			const label = labels[aqiValue] || 'Unknown AQI value';
+
+			// append dat
+			const aqiHtml = `<div class="aqi">
+								<h3>Air Quality</h3>
+								<p> AQI: <strong>${aqiValue}</strong> - ${label}</p>
+							</div>`
+
+			container.insertAdjacentHTML('beforeend', aqiHtml);
 		}
 	</script>
 </html>
