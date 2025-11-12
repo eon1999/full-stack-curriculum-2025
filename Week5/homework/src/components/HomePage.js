@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Typography,
@@ -13,54 +13,89 @@ import {
 } from "@mui/material";
 import Header from "./Header";
 import { useNavigate } from 'react-router-dom';
+import {getTasks, createTask, updateTask} from "../App";
 //import { useAuth } from '../contexts/AuthContext';
 
 export default function HomePage() {
   const navigate = useNavigate();
 
   // State to hold the list of tasks.
-  const [taskList, setTaskList] = useState([
-    // Sample tasks to start with.
-    { name: "create a todo app", finished: false },
-    { name: "wear a mask", finished: false },
-    { name: "play roblox", finished: false },
-    { name: "be a winner", finished: true },
-    { name: "become a tech bro", finished: true },
-  ]);
+  const [taskList, setTaskList] = useState([]);
+
 
   // State for the task name being entered by the user.
   const [newTaskName, setNewTaskName] = useState("");
+
+  const [load, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // TODO: Support retrieving your todo list from the API.
   // Currently, the tasks are hardcoded. You'll need to make an API call
   // to fetch the list of tasks instead of using the hardcoded data.
 
+  // useEffect hook to run once when component is loaded
+  useEffect(() => {
+    // set load state to be true before fetching data
+    setLoading(true);
+
+    getTasks("user")
+      .then(tasks => {
+        // fetch is successful, update the task
+        setTaskList(tasks);
+
+        // loading is done
+        setLoading(false);
+      })
+
+      .catch(err => {
+        // If there's an error, set the error state, stop loading
+        setError(err);
+        setLoading(false);
+
+      });
+    }, []);
+
   function handleAddTask() {
-    // Check if task name is provided and if it doesn't already exist.
-    if (newTaskName && !taskList.some((task) => task.name === newTaskName)) {
-
-      // TODO: Support adding todo items to your todo list through the API.
-      // In addition to updating the state directly, you should send a request
-      // to the API to add a new task and then update the state based on the response.
-
-      setTaskList([...taskList, { name: newTaskName, finished: false }]);
-      setNewTaskName("");
-    } else if (taskList.some((task) => task.name === newTaskName)) {
-      alert("Task already exists!");
+    if (!newTaskName) {
+      return;
     }
+
+    // Create new task object
+    const newTask = {
+      task: newTaskName,
+      finished: false,
+      user: "user",
+    }
+    // call API to create new task
+    createTask(newTask)
+      .then(addedTask => {
+        // Add new task from API
+        setTaskList(prevTasks => [...prevTasks, addedTask]);
+        // clear input field
+        setNewTaskName("");
+      })
+      .catch(err => {
+        setError(err);
+      });
   }
 
   // Function to toggle the 'finished' status of a task.
   function toggleTaskCompletion(task) {
-    setTaskList(
-      taskList.map((t) =>
-        t.id === task.id ? { ...t, finished: !task.finished } : t
-      )
-    );
 
-    // TODO: Support removing/checking off todo items in your todo list through the API.
-    // Similar to adding tasks, when checking off a task, you should send a request
-    // to the API to update the task's status and then update the state based on the response.
+    // Create the updated task object with togged finish status
+    const updatedTask = { ...task, finished: !task.finished };
+
+    // update dat task
+    updateTask(task.id, updatedTask)
+      .then(returnedTask => {
+        // update successful? update task in local list
+        setTaskList(taskList.map((t) =>
+        t.id === returnedTask.id ? returnedTask : t
+        ));
+      })
+      .catch(err => {
+        setError(err);
+      });
   }
 
   // Function to compute a message indicating how many tasks are unfinished.

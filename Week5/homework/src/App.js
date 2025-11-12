@@ -8,6 +8,51 @@ import LoginPage from "./components/LoginPage"; // Component for the login page
 import { CssBaseline } from "@mui/material"; // For consistent baseline styling
 import theme from "./Theme"; // Custom theme settings
 
+const BASE_URL = "https://tpeo-todo.vercel.app";
+
+// Helper: perform fetch and return json OR throw error
+async function request(path, options = {}) {
+  // call fetch with full URL
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: { "Content-Type": "application/json"},
+    ...options
+  });
+  
+  // if response not ok, try to read body for a better error
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText} - ${text}`)
+  }
+
+  // response is ok, try to parse json, but some responses return null
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+export async function getTasks() {
+  return request("/tasks");
+}
+
+export async function createTask(task) {
+  return request("/tasks", {
+    method: "POST",
+    body: JSON.stringify(task), // send task as JSON
+  });
+}
+
+export async function updateTask(id, task) {
+  return request(`/tasks/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(task), // update payload
+  });
+}
+
+export async function deleteTask(id) {
+  return request(`/tasks/${id}`, {
+    method: "DELETE",
+  });
+}
+
 // The main App component
 function App() {
   return (
