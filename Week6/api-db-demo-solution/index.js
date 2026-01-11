@@ -9,6 +9,10 @@ require('dotenv').config();
 const app = express();
 const db = require('./firebase'); // Your Firebase config file
 
+var pbkdf2 = require('pbkdf2');
+const jwet = require('jsonwebtoken');
+ACCESS_TOKEN_SECRET = "abc123";
+const SALT = "s0m3S@1tV@lu3";
 // Middleware to parse JSON
 app.use(express.json());
 
@@ -30,6 +34,24 @@ const validateInput = (req, res, next) => {
     } else {
         res.status(400).json({ error: 'Incomplete input' });
     }
+};
+
+function authMiddleware(req, res, next) {
+    if (req.headers["authorization"]) {
+        const token = req.headers["authorization"].split(" ");
+        if (headers.length === 2 && token[0] === "Bearer") {
+            let token = headers[1];
+            try {
+                let decodedToken = jwt.verify(token, ACCESS_TOKEN_SECRET);
+                req.user = decodedToken.username
+                next();
+            } catch (err) {
+                return res.status(401).json({ error: "Invalid token" });
+            }
+    } else {
+        res.status(401).json({ error: "Malformed token" });
+    }
+    res.status(401).json({ error: "No token provided" });
 };
 
 // Root route
@@ -84,6 +106,52 @@ app.delete('/api/tweets/:id', async (req, res) => {
         await tweetRef.delete();
         res.json({ id, ...tweetSnapshot.data() });
     }
+});
+
+const hashPassword = (password) => {
+    return pbkdf2.pbkdf2Sync(password, SALT, 1000, 64, 'sha512').toString('hex');
+}
+
+app.post('/register', async (req, res) => {
+    const { username, password } = req.body;
+    const hashedPassword = hashPassword(password);
+
+    const check = await db.collection("users").where("username", "==", username).get();
+
+    if (!check.empty) {
+        return res.status(400).json({ error: "Username already exists" });
+    }
+
+    const user = check.data();
+
+    if (passHashed === user.password) {
+        const accessToken = jwet.sign({ username: username }, ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+        return res.json({ data: {username: username}, token: accessToken });
+    } else {
+        return res.status(400).json({ error: "Invalid password" });
+    }
+});
+
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    const hashedPassword = hashPassword(password);
+
+
+    const check = await db.collection("users").where("username", "==", username).get();
+
+    if (check.empty) {
+        return res.status(400).json({ error: "User not found" });
+    }
+
+    const user = check.docs[0].data();
+
+    if (user.password !== hashedPassword) {
+        return res.status(400).json({ error: "Invalid password" });
+    }
+
+    const accessToken = jwet.sign({ username: username }, ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+
+    res.json({ data: {username: username}, token: accessToken });
 });
 
 const port = process.env.PORT || 3000;

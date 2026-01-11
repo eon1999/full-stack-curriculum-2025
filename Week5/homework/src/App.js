@@ -7,14 +7,19 @@ import HomePage from "./components/HomePage"; // Component for the homepage
 import LoginPage from "./components/LoginPage"; // Component for the login page
 import { CssBaseline } from "@mui/material"; // For consistent baseline styling
 import theme from "./Theme"; // Custom theme settings
+import { auth } from "./firebaseConfig"
 
-const BASE_URL = "https://tpeo-todo.vercel.app";
+const BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:3001";
 
 // Helper: perform fetch and return json OR throw error
 async function request(path, options = {}) {
+  const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
   // call fetch with full URL
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json"},
+    headers: {
+      "Content-Type": "application/json",
+      ... (token && { "Authorization": `Bearer ${token}`})
+    },
     ...options
   });
   
@@ -59,10 +64,11 @@ function App() {
     // The Router component from react-router-dom helps in handling different routes or pages
     <Router>
       {/* CssBaseline is a component from MUI. It helps in providing consistent baseline styling across different browsers. */}
-      <CssBaseline/>
+      <CssBaseline />
       {/* TODO: AuthProvider is a custom context component that provides authentication functionalities to its children. */}
-      
-        {/* ThemeProvider from MUI provides theming capabilities. We pass our custom theme to it. */}
+
+      {/* ThemeProvider from MUI provides theming capabilities. We pass our custom theme to it. */}
+      <AuthProvider>
         <ThemeProvider theme={theme}>
           {/* Routes is a component from react-router-dom that wraps all possible routes or pages */}
           <Routes>
@@ -72,7 +78,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
           </Routes>
         </ThemeProvider>
-      
+      </AuthProvider>
     </Router>
   );
 }

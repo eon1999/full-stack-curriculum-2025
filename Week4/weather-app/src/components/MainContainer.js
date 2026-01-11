@@ -29,6 +29,10 @@ function MainContainer(props) {
   null or an empty object.
   */
   
+  const [weather, setWeather] = useState(null);
+  // other stuff for debug
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   
   /*
   STEP 3: Fetch Weather Data When City Changes.
@@ -43,6 +47,36 @@ function MainContainer(props) {
   After fetching the data, use the 'setWeather' function from the 'useState' hook to set the weather data 
   in your state.
   */
+  useEffect(() => {
+    const city = props.selectedCity;
+    if (!city) {
+      setWeather(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    const {lat, lon} = city;
+    const apiKey = props.apiKey;
+    const url = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely,alerts&appid=${apiKey}`;
+
+    setLoading(true);
+    setError(null);
+
+    fetch(url)
+      .then((res) =>{
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        setWeather(data);
+      })
+      .catch((err) => {
+        setError(err.message || "Failed to fetch data");
+        setWeather(null);
+      })
+      .finally(() => setLoading(false));
+  }, [props.selectedCity, props.apiKey]);
   
   
   return (
@@ -59,6 +93,24 @@ function MainContainer(props) {
         This is a good section to play around with React components! Create your own - a good example could be a WeatherCard
         component that takes in props, and displays data for each day of the week.
         */}
+
+        {!props.selectedCity && <p>Please select a city to view the weather. </p>}
+
+        {props.selectedCity && loading && <p>Loading... please wait...</p>}
+
+        {props.selectedCity && error && <p>Error: {error}</p>}
+
+        {props.selectedCity && weather && !loading && !error && (
+          <div>
+            <h2>{props.selectedCity.fullName}</h2>
+            <div>
+              <h3> Today - {formatDate(0)}</h3>
+              <p>
+                Temp: {weather.current.temp} °F, {weather.current.weather[0].description}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

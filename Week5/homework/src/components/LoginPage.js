@@ -8,22 +8,29 @@ import {
   Alert,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-//import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 
 function LoginPage() {
   // Access the MUI theme for potential theme-related functionalities.
   const theme = useTheme();
 
   // TODO: Extract login function and error from our authentication context.
+  const { login, register, loginError} = useAuth();
 
   // State to hold the username and password entered by the user.
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   // TODO: Handle login function.
-  const handleLogin = () => {
-    
+  const handleLogin = (e) => {
+    e.preventDefault();
+    login(username, password);
   };
+
+  const handleRegister = (e) => {
+    e.preventDefault();
+    register(username, password);
+  }
 
   return (
     <Container component="main" maxWidth="xs">
@@ -84,6 +91,15 @@ function LoginPage() {
             onClick={handleLogin}
           >
             Login
+          </Button>
+          <Button
+            fullWidth
+            variant="outlined"
+            color="secondary"
+            sx={{ mb: 2 }}
+            onClick={handleRegister} // Added Register Button
+          >
+            Register
           </Button>
         </Box>
         {/* TODO: Display Login Error if it exists */}

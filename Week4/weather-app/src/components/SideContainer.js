@@ -95,7 +95,13 @@ function SideContainer(props) {
       lat: lat,
       lon: lon,
     };
-    console.log(city);
+    
+    if (typeof props.setSelectedCity === "function") {
+      props.setSelectedCity(city);
+    } else {
+      console.warn("setSelectedCity prop is not a function");
+      console.log(city);
+    }
   }
 
   return (

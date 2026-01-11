@@ -14,10 +14,11 @@ import {
 import Header from "./Header";
 import { useNavigate } from 'react-router-dom';
 import {getTasks, createTask, updateTask} from "../App";
-//import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { currentUser } = useAuth(); // Get current user 
 
   // State to hold the list of tasks.
   const [taskList, setTaskList] = useState([]);
@@ -35,10 +36,16 @@ export default function HomePage() {
 
   // useEffect hook to run once when component is loaded
   useEffect(() => {
+    // if not logged in, then go login
+    if (!currentUser) {
+      navigate("/login");
+      return;
+    }
     // set load state to be true before fetching data
+    setTaskList([]);
     setLoading(true);
 
-    getTasks("user")
+    getTasks()
       .then(tasks => {
         // fetch is successful, update the task
         setTaskList(tasks);
@@ -53,10 +60,10 @@ export default function HomePage() {
         setLoading(false);
 
       });
-    }, []);
+    }, [currentUser, navigate]);
 
   function handleAddTask() {
-    if (!newTaskName) {
+    if (!newTaskName || !currentUser) {
       return;
     }
 
@@ -64,7 +71,7 @@ export default function HomePage() {
     const newTask = {
       task: newTaskName,
       finished: false,
-      user: "user",
+      user: currentUser.email,
     }
     // call API to create new task
     createTask(newTask)
@@ -165,14 +172,14 @@ export default function HomePage() {
             <List sx={{ marginTop: 3 }}>
               {taskList.map((task) => (
                 <ListItem
-                  key={task.name}
+                  key={task.id}
                   dense
                   onClick={() => toggleTaskCompletion(task)}
                 >
                   <Checkbox
                     checked={task.finished}
                   />
-                  <ListItemText primary={task.name} />
+                  <ListItemText primary={task.task} />
                 </ListItem>
               ))}
             </List>
