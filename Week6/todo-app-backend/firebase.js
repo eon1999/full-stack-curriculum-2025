@@ -16,6 +16,9 @@ try {
   creds = JSON.parse(process.env.FIREBASE_CREDENTIALS);
 
   // try to see if my private key needs cleaning
+  const rawCreds = process.env.FIREBASE_CREDENTIALS;
+  creds = typeof rawCreds === "string" ? JSON.parse(rawCreds) : rawCreds;
+
   if (creds.private_key) {
     creds.private_key = creds.private_key.replace(/\\n/g, "\n");
   }
