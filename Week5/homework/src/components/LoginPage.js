@@ -102,7 +102,9 @@ function LoginPage() {
             Register
           </Button>
         </Box>
-        {/* TODO: Display Login Error if it exists */}
+        {loginError && (
+          <Alert severity="error">{loginError}</Alert>
+        )}
       </Box>
     </Container>
   );
