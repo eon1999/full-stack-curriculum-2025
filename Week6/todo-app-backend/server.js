@@ -1,149 +1,149 @@
-// Importing required modules
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-
-// Creating an instance of Express
-const app = express();
-
-// Loading environment variables from a .env file into process.env
+const admin = require("firebase-admin");
 require("dotenv").config();
 
-// Importing the Firestore database instance from firebase.js
-
-
-// Middlewares to handle cross-origin requests and to parse the body of incoming requests to JSON
+const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Your API routes will go here...
-
-// --- DEBUGGING SETUP ---
+// --- 1. SAFE FIREBASE INITIALIZATION ---
 let db;
-let dbError = null;
+let initError = null;
 
 try {
-  // Try to load firebase, but don't crash the server if it fails
-  db = require("./firebase");
+  // We check if it's already initialized to prevent hot-reload duplicates
+  if (!admin.apps.length) {
+    db = require("./firebase");
+  } else {
+    db = admin.firestore();
+  }
+  console.log("✅ Firebase initialized successfully");
 } catch (error) {
-  dbError = error.message;
-  console.error("Failed to initialize Firebase:", error);
+  console.error("❌ Critical Firebase Error:", error);
+  initError = error.message;
 }
 
-// 1. Root Route (Fixes "Cannot GET /")
-app.get("/", (req, res) => {
-  res.json({
-    status: "Server is running",
-    environment: process.env.NODE_ENV || "development",
-    firebaseStatus: db ? "Connected" : "Failed",
-    firebaseError: dbError // This will show you exactly why it failed
-  });
-});
-
-// week7 auth
-
-const admin = require("firebase-admin");
-
-// this is the middleware to verify firebase id tokens
-const auth = (req, res, next) => {
+// --- 2. ROBUST AUTH MIDDLEWARE ---
+const auth = async (req, res, next) => {
   try {
-    const authHeader = req.get("Authorization");
-    if (!authHeader) return res.status(401).send("No token given");
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
+    }
 
-    const tokenId = authHeader.split("Bearer ")[1];
-    admin
-      .auth()
-      .verifyIdToken(tokenId)
-      .then((decoded) => {
-        req.token = decoded;
-        next();
-      })
-      .catch((error) => res.status(401).send(error));
+    const token = authHeader.split("Bearer ")[1];
+
+    // Verify token
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken; // Attaching to req.user is standard
+    next();
   } catch (error) {
-    res.status(400).send("Invalid token");
+    console.error("🔐 Auth Error:", error.message);
+    res.status(401).json({ error: "Invalid token", details: error.message });
   }
 };
 
-// GET: Endpoint to retrieve all tasks
+// --- 3. ROUTES ---
+
+// HEALTH CHECK + DB TEST (Visit this in browser!)
+app.get("/", async (req, res) => {
+  let dbStatus = "Unknown";
+  let dbReadTest = "Not Attempted";
+
+  // Try to actually read from the database to verify credentials
+  if (db) {
+    try {
+      // Just check if we can list collections (or any read op)
+      await db.listCollections();
+      dbStatus = "Connected & Verified";
+      dbReadTest = "Success";
+    } catch (e) {
+      dbStatus = "Connected but Permission Denied";
+      dbReadTest = `Failed: ${e.message}`;
+    }
+  }
+
+  res.json({
+    status: "online",
+    firebaseInit: initError ? "Failed" : "Success",
+    dbConnection: dbStatus,
+    dbReadError: dbReadTest,
+    projectId: process.env.FIREBASE_CREDENTIALS
+      ? JSON.parse(process.env.FIREBASE_CREDENTIALS).project_id
+      : "Unknown",
+  });
+});
+
+// GET TASKS
 app.get("/tasks", auth, async (req, res) => {
+  if (!db) return res.status(500).json({ error: "Database not initialized" });
+
   try {
-    // Fetching all documents from the "tasks" collection in Firestore
-    const userEmail = req.token.email;
+    const userEmail = req.user.email;
+    if (!userEmail)
+      return res.status(400).json({ error: "User email not found in token" });
+
+    // Note: Ensure your Firestore has a 'tasks' collection and documents have a 'user' field matching the email
     const snapshot = await db
       .collection("tasks")
       .where("user", "==", userEmail)
       .get();
 
-    let tasks = [];
-    // Looping through each document and collecting data
-    snapshot.forEach((doc) => {
-      tasks.push({
-        id: doc.id, // Document ID from Firestore
-        ...doc.data(), // Document data
-      });
-    });
+    const tasks = [];
+    snapshot.forEach((doc) => tasks.push({ id: doc.id, ...doc.data() }));
 
-    // Sending a successful response with the tasks data
-    res.status(200).send(tasks);
+    res.json(tasks);
   } catch (error) {
-    // Sending an error response in case of an exception
-    res.status(500).send(error.message);
+    console.error("❌ GET /tasks Error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// POST: Endpoint to add a new task
-// ...
+// POST TASK
 app.post("/tasks", auth, async (req, res) => {
-  try {
-    const data = req.body;
-    const addedTask = await db.collection("tasks").add(data);
+  if (!db) return res.status(500).json({ error: "Database not initialized" });
 
-    res.status(201).send({
-      id: addedTask.id,
-      ...data,
-    });
+  try {
+    const newTask = {
+      description: req.body.description,
+      done: false,
+      user: req.user.email, // Consistency: use email if that's what you query by
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const docRef = await db.collection("tasks").add(newTask);
+    res.status(201).json({ id: docRef.id, ...newTask });
   } catch (error) {
-    res.status(500).send(error.message);
+    console.error("❌ POST /tasks Error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// DELETE: Endpoint to remove a task
-// ...
+// DELETE TASK
 app.delete("/tasks/:id", auth, async (req, res) => {
   try {
-    const id = req.params.id;
-    await db.collection("tasks").doc(id).delete();
-
-    res.status(200).send({
-      id: id,
-      message: "Task deleted successfully",
-    });
+    await db.collection("tasks").doc(req.params.id).delete();
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// PUT: Endpoint to check off or update a task
+// PUT TASK
 app.put("/tasks/:id", auth, async (req, res) => {
   try {
-    const id = req.params.id;
-    const data = req.body;
-    await db.collection("tasks").doc(id).update(data);
-
-    res.status(200).send({
-      id: id,
-      ...data,
-    });
+    await db.collection("tasks").doc(req.params.id).update(req.body);
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Setting the port for the server to listen on
 const PORT = process.env.PORT || 3001;
-// Starting the server
 app.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
 
 module.exports = app;
