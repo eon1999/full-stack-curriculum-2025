@@ -115,18 +115,27 @@ app.post("/tasks", auth, async (req, res) => {
     // LOGGING: See exactly what the frontend is sending
     console.log("POST /tasks received:", req.body);
 
-    // VALIDATION: Ensure description exists explicitly
-    if (!req.body || !req.body.description) {
+    // ADAPTATION: Frontend sends 'task', Backend originally wanted 'description'
+    // We'll accept either to be flexible.
+    const taskDescription = req.body.task || req.body.description;
+
+    // VALIDATION: Ensure we have something to save
+    if (!taskDescription) {
       return res.status(400).json({
-        error: "Missing 'description' field in request body",
+        error: "Missing 'task' or 'description' field in request body",
         received: req.body,
       });
     }
 
     const newTask = {
-      description: req.body.description,
-      done: false,
-      user: req.user.email, // Consistency: use email if that's what you query by
+      // We save it as BOTH fields so it works no matter what the frontend expects on read
+      description: taskDescription, // Legacy support
+      task: taskDescription, // Frontend support
+
+      // Handle 'done' vs 'finished' mismatch
+      done: req.body.finished || req.body.done || false,
+
+      user: req.user.email,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
