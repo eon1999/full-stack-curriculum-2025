@@ -19,9 +19,15 @@ try {
   } else {
     db = admin.firestore();
   }
-  console.log("✅ Firebase initialized successfully");
+
+  // OPTIONAL: Prevent crashes if you accidentally pass undefined
+  if (db) {
+    db.settings({ ignoreUndefinedProperties: true });
+  }
+
+  console.log("Firebase initialized successfully");
 } catch (error) {
-  console.error("❌ Critical Firebase Error:", error);
+  console.error("Critical Firebase Error:", error);
   initError = error.message;
 }
 
@@ -40,7 +46,7 @@ const auth = async (req, res, next) => {
     req.user = decodedToken; // Attaching to req.user is standard
     next();
   } catch (error) {
-    console.error("🔐 Auth Error:", error.message);
+    console.error("Auth Error:", error.message);
     res.status(401).json({ error: "Invalid token", details: error.message });
   }
 };
@@ -96,7 +102,7 @@ app.get("/tasks", auth, async (req, res) => {
 
     res.json(tasks);
   } catch (error) {
-    console.error("❌ GET /tasks Error:", error);
+    console.error("GET /tasks Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -106,6 +112,17 @@ app.post("/tasks", auth, async (req, res) => {
   if (!db) return res.status(500).json({ error: "Database not initialized" });
 
   try {
+    // LOGGING: See exactly what the frontend is sending
+    console.log("POST /tasks received:", req.body);
+
+    // VALIDATION: Ensure description exists explicitly
+    if (!req.body || !req.body.description) {
+      return res.status(400).json({
+        error: "Missing 'description' field in request body",
+        received: req.body,
+      });
+    }
+
     const newTask = {
       description: req.body.description,
       done: false,
@@ -116,7 +133,7 @@ app.post("/tasks", auth, async (req, res) => {
     const docRef = await db.collection("tasks").add(newTask);
     res.status(201).json({ id: docRef.id, ...newTask });
   } catch (error) {
-    console.error("❌ POST /tasks Error:", error);
+    console.error("POST /tasks Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -143,7 +160,7 @@ app.put("/tasks/:id", auth, async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 module.exports = app;
