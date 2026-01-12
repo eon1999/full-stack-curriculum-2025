@@ -14,12 +14,19 @@ try {
 
   // try to parse the json
   creds = JSON.parse(process.env.FIREBASE_CREDENTIALS);
+
+  // try to see if my private key needs cleaning
+  if (creds.private_key) {
+    creds.private_key = creds.private_key.replace(/\\n/g, "\n");
+  }
 } catch (error) {
   console.error("CRITICAL ERROR: Failed to parse FIREBASE_CREDENTIALS.");
   console.error("Original Error:", error.message);
   // We throw again to stop execution, but now we have a log in Vercel
   throw error;
 }
+
+
 
 // initialize firebase
 if (!admin.apps.length) {
