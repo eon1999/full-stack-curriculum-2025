@@ -18,6 +18,28 @@ app.use(bodyParser.json());
 
 // Your API routes will go here...
 
+// --- DEBUGGING SETUP ---
+let db;
+let dbError = null;
+
+try {
+  // Try to load firebase, but don't crash the server if it fails
+  db = require("./firebase");
+} catch (error) {
+  dbError = error.message;
+  console.error("Failed to initialize Firebase:", error);
+}
+
+// 1. Root Route (Fixes "Cannot GET /")
+app.get("/", (req, res) => {
+  res.json({
+    status: "Server is running",
+    environment: process.env.NODE_ENV || "development",
+    firebaseStatus: db ? "Connected" : "Failed",
+    firebaseError: dbError // This will show you exactly why it failed
+  });
+});
+
 // week7 auth
 
 const admin = require("firebase-admin");

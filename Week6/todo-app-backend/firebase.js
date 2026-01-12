@@ -17,11 +17,13 @@ try {
 
   // try to see if my private key needs cleaning
   const rawCreds = process.env.FIREBASE_CREDENTIALS;
-  creds = typeof rawCreds === "string" ? JSON.parse(rawCreds) : rawCreds;
+  creds = JSON.parse(rawCreds);
 
   if (creds.private_key) {
     creds.private_key = creds.private_key.replace(/\\n/g, "\n");
   }
+
+  console.log("Firebase credentials loaded successfully");
 } catch (error) {
   console.error("CRITICAL ERROR: Failed to parse FIREBASE_CREDENTIALS.");
   console.error("Original Error:", error.message);
