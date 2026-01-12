@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// --- 1. SAFE FIREBASE INITIALIZATION ---
+// --- SAFE FIREBASE INITIALIZATION ---
 let db;
 let initError = null;
 
@@ -31,7 +31,7 @@ try {
   initError = error.message;
 }
 
-// --- 2. ROBUST AUTH MIDDLEWARE ---
+// ---  AUTH MIDDLEWARE ---
 const auth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -51,9 +51,9 @@ const auth = async (req, res, next) => {
   }
 };
 
-// --- 3. ROUTES ---
+// --- ROUTES ---
 
-// HEALTH CHECK + DB TEST (Visit this in browser!)
+// HEALTH CHECK + DB TEST
 app.get("/", async (req, res) => {
   let dbStatus = "Unknown";
   let dbReadTest = "Not Attempted";
@@ -161,7 +161,8 @@ app.delete("/tasks/:id", auth, async (req, res) => {
 app.put("/tasks/:id", auth, async (req, res) => {
   try {
     await db.collection("tasks").doc(req.params.id).update(req.body);
-    res.json({ success: true });
+    // Return the updated object so the frontend can update local state immediately
+    res.json({ id: req.params.id, ...req.body });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
